@@ -17,11 +17,27 @@ function sort_versions() {
 }
 
 function list_github_releases() {
-  curl "${curl_opts[@]}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=100" |
-    grep -o '"tag_name": "bun-v.*"' |
-    sed -E 's/"tag_name": "bun-v(.*)"/\1/'
+  local page=1
+  local response
+  local tags
+
+  while true; do
+    if ! response=$(curl "${curl_opts[@]}" \
+      -H "Accept: application/vnd.github+json" \
+      "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=100&page=$page"); then
+      return 1
+    fi
+    if ! echo "$response" | grep -q '"tag_name":'; then
+      break
+    fi
+
+    if echo "$response" | grep -q '"tag_name": "bun-v'; then
+      tags=$(echo "$response" | grep -o '"tag_name": "bun-v[^"]*"' |
+        sed -E 's/"tag_name": "bun-v([^"]*)"/\1/')
+      echo "$tags"
+    fi
+    page=$((page + 1))
+  done
 }
 
 function list_github_tags() {
