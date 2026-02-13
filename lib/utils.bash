@@ -18,19 +18,24 @@ function sort_versions() {
 
 function list_github_releases() {
   local page=1
+  local response
   local tags
 
   while true; do
-    tags=$(curl "${curl_opts[@]}" \
+    if ! response=$(curl "${curl_opts[@]}" \
       -H "Accept: application/vnd.github+json" \
-      "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=100&page=$page" |
-      grep -o '"tag_name": "bun-v.*"' || true)
-
-    if [ -z "$tags" ]; then
+      "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=100&page=$page"); then
+      return 1
+    fi
+    if ! echo "$response" | grep -q '"tag_name":'; then
       break
     fi
 
-    echo "$tags" | sed -E 's/"tag_name": "bun-v(.*)"/\1/'
+    if echo "$response" | grep -q '"tag_name": "bun-v'; then
+      tags=$(echo "$response" | grep -o '"tag_name": "bun-v[^"]*"' |
+        sed -E 's/"tag_name": "bun-v([^"]*)"/\1/')
+      echo "$tags"
+    fi
     page=$((page + 1))
   done
 }
